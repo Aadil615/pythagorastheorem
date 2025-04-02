@@ -151,8 +151,14 @@
     let c = Math.sqrt(a*a + b*b); // initially 100
     let prevC = c;
     
-    // We'll now let s be dynamic so the model scales to fit.
+    // We'll let s be dynamic only on setup and windowResized() so that slider changes adjust the triangle size.
     let s;
+    // We'll compute s based on the container width so the triangle doesn't appear too big.
+    // For example, we use 30% of container width divided by 100 (max side length) as our scale factor.
+    function computeScale() {
+      const container = select('#canvas-container').elt;
+      return (container.offsetWidth * 0.3) / 100;
+    }
     
     // Model vertices for triangle and square.
     let A, B, Cpos;
@@ -173,13 +179,15 @@
     const baseTextSizeTheorem = 24;
     
     function setup() {
-      // Create a canvas that fills the container.
       const container = select('#canvas-container').elt;
       createCanvas(container.offsetWidth, container.offsetHeight).parent("canvas-container");
       animationStart = millis();
       
       colorA = color(70,130,180);
       colorB = color(60,179,113);
+      
+      // Compute initial scale factor s.
+      s = computeScale();
       
       updateTriangleVertices();
       
@@ -277,19 +285,7 @@
       restartButton.mousePressed(resetAnimation);
     }
     
-    // updateTriangleVertices() recalculates s so that the entire model (with bounding box 2*a*s x 2*b*s) fits inside the canvas.
-    function updateTriangleVertices() {
-      // We'll reserve a small margin (say 20px) on each side.
-      let margin = 20;
-      s = min((width - margin) / (2 * a), (height - margin) / (2 * b));
-      let centerX = width/2;
-      let centerY = height/2;
-      A = createVector(centerX - (a * s)/2, centerY - (b * s)/2);
-      B = createVector(A.x + a * s, A.y);
-      Cpos = createVector(A.x, A.y + b * s);
-    }
-    
-    // updateSliderBackground() updates each slider's background.
+    // updateSliderBackground() updates the slider background with blue trail and white unused portion.
     function updateSliderBackground(slider) {
       let minVal = Number(slider.elt.min);
       let maxVal = Number(slider.elt.max);
@@ -298,7 +294,70 @@
       slider.elt.style.background = `linear-gradient(to right, #2196F3 0%, #2196F3 ${percentage}%, white ${percentage}%, white 100%)`;
     }
     
-    // Draw side labels along triangle edges.
+    // updateTriangleVertices() uses the fixed scale factor s (computed on setup and on windowResized())
+    // to position the triangle based on the current slider values.
+    function updateTriangleVertices() {
+      let centerX = width/2;
+      let centerY = height/2;
+      A = createVector(centerX - (a * s)/2, centerY - (b * s)/2);
+      B = createVector(A.x + a * s, A.y);
+      Cpos = createVector(A.x, A.y + b * s);
+    }
+    
+    function draw() {
+      background(240);
+      
+      // Draw title at top.
+      fill(0);
+      noStroke();
+      textSize(baseTextSizeTheorem);
+      textAlign(CENTER, CENTER);
+      text("Squares on sides A and B fit exactly into the square on side C", width/2, 30);
+      
+      // Draw triangle.
+      stroke(0);
+      strokeWeight(3);
+      fill(255,255,255,220);
+      triangle(A.x, A.y, B.x, B.y, Cpos.x, Cpos.y);
+      
+      // Draw side labels.
+      drawSideLabels();
+      
+      // Animate squares fading in.
+      let t = (millis() - animationStart) / 1000;
+      let alphaA = map(t, 1, 2, 0, 255, true);
+      let alphaB = map(t, 2, 3, 0, 255, true);
+      let alphaC = map(t, 3, 4, 0, 255, true);
+      
+      let sqA = getSquareVertices(A, B, Cpos);
+      let eqTextA = round(c) + "² - " + round(b) + "² = " + round(a) + "²";
+      let areaTextA = "Area: " + round(a * a) + " cm²";
+      drawSquareWithLabel2(sqA, colorA, alphaA, eqTextA, areaTextA);
+      
+      let sqB = getSquareVertices(A, Cpos, B);
+      let eqTextB = round(c) + "² - " + round(a) + "² = " + round(b) + "²";
+      let areaTextB = "Area: " + round(b * b) + " cm²";
+      drawSquareWithLabel2(sqB, colorB, alphaB, eqTextB, areaTextB);
+      
+      if (t > 3) {
+        let sqC = getSquareVerticesC_simple(B, Cpos);
+        drawSquareC_flipped(sqC, alphaC);
+      }
+      
+      // Draw theorem at bottom.
+      if (t > 4) {
+        push();
+        textSize(baseTextSizeTheorem);
+        textAlign(CENTER, CENTER);
+        stroke(0);
+        strokeWeight(2);
+        fill(255,200,0);
+        let theoremText = round(a) + "² + " + round(b) + "² = " + round(c) + "²";
+        text(theoremText, width/2, height - 40);
+        pop();
+      }
+    }
+    
     function drawSideLabels() {
       textSize(baseTextSizeSquare);
       fill(0);
@@ -362,7 +421,7 @@
       push();
       translate(vertices[0].x, vertices[0].y);
       rotate(angle);
-      scale(1, -1); // Flip vertically
+      scale(1, -1);
       
       let wA = ((a * a) / c) * s;
       let wB = ((b * b) / c) * s;
@@ -447,12 +506,12 @@
       
       let sqA = getSquareVertices(A, B, Cpos);
       let eqTextA = round(c) + "² - " + round(b) + "² = " + round(a) + "²";
-      let areaTextA = "Area: " + round(a*a) + " cm²";
+      let areaTextA = "Area: " + round(a * a) + " cm²";
       drawSquareWithLabel2(sqA, colorA, alphaA, eqTextA, areaTextA);
       
       let sqB = getSquareVertices(A, Cpos, B);
       let eqTextB = round(c) + "² - " + round(a) + "² = " + round(b) + "²";
-      let areaTextB = "Area: " + round(b*b) + " cm²";
+      let areaTextB = "Area: " + round(b * b) + " cm²";
       drawSquareWithLabel2(sqB, colorB, alphaB, eqTextB, areaTextB);
       
       if (t > 3) {
