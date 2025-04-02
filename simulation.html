@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Added meta viewport for mobile responsiveness -->
+  <!-- Ensure proper scaling on mobile devices -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pythagorean Theorem Simulation</title>
   <!-- Load p5.js library -->
@@ -110,11 +110,10 @@
     }
     #canvas-container {
       margin: auto;
-      /* Make canvas responsive */
       width: 100%;
       max-width: 800px;
       height: 0;
-      padding-bottom: 75%; /* 4:3 aspect ratio */
+      padding-bottom: 75%; /* Maintain 4:3 aspect ratio */
       border: 2px solid rgba(255,255,255,0.5);
       box-shadow: 0 0 20px rgba(0,0,0,0.5);
       background: #f0f0f0;
@@ -150,41 +149,40 @@
     // Global Variables (units in cm)
     let a = 60, b = 80;
     let c = Math.sqrt(a*a + b*b); // initially 100
-    let prevC = c; // For scaling when c changes
-
-    // Fixed drawing scale factor.
-    const s = 2;
-
-    // Model vertices for triangle and square
+    let prevC = c;
+    
+    // We'll now let s be dynamic so the model scales to fit.
+    let s;
+    
+    // Model vertices for triangle and square.
     let A, B, Cpos;
-
+    
     // UI Elements
     let sliderA, sliderB, sliderC;
     let aValueSpan, bValueSpan, cValueSpan;
     let restartButton;
-
+    
     // Colors for squares
     let colorA, colorB;
-
+    
     // Animation Control
     let animationStart;
-
+    
     // Base text sizes
-    const baseTextSizeTriangle = 14;
-    const baseTextSizeSquare   = 16;
-    const baseTextSizeTheorem  = 24;
-
+    const baseTextSizeSquare = 16;
+    const baseTextSizeTheorem = 24;
+    
     function setup() {
-      // Create canvas based on container dimensions
+      // Create a canvas that fills the container.
       const container = select('#canvas-container').elt;
       createCanvas(container.offsetWidth, container.offsetHeight).parent("canvas-container");
       animationStart = millis();
-
+      
       colorA = color(70,130,180);
       colorB = color(60,179,113);
-
+      
       updateTriangleVertices();
-
+      
       sliderA = select('#aSlider');
       sliderB = select('#bSlider');
       sliderC = select('#cSlider');
@@ -192,16 +190,16 @@
       bValueSpan = select('#bValue');
       cValueSpan = select('#cValue');
       restartButton = select('#restartButton');
-
+      
       aValueSpan.html(a);
       bValueSpan.html(b);
       cValueSpan.html(round(c));
       sliderC.value(c);
-
+      
       updateSliderBackground(sliderA);
       updateSliderBackground(sliderB);
       updateSliderBackground(sliderC);
-
+      
       sliderA.input(() => {
         a = Number(sliderA.value());
         aValueSpan.html(a);
@@ -224,7 +222,7 @@
         updateTriangleVertices();
         resetAnimation();
       });
-
+      
       sliderB.input(() => {
         b = Number(sliderB.value());
         bValueSpan.html(b);
@@ -247,7 +245,7 @@
         updateTriangleVertices();
         resetAnimation();
       });
-
+      
       sliderC.input(() => {
         let newC = Number(sliderC.value());
         cValueSpan.html(round(newC));
@@ -275,11 +273,23 @@
         updateTriangleVertices();
         resetAnimation();
       });
-
-      restartButton.mousePressed(resetAnimation());
+      
+      restartButton.mousePressed(resetAnimation);
     }
-
-    // Function to update slider background with blue trail and white unused track.
+    
+    // updateTriangleVertices() recalculates s so that the entire model (with bounding box 2*a*s x 2*b*s) fits inside the canvas.
+    function updateTriangleVertices() {
+      // We'll reserve a small margin (say 20px) on each side.
+      let margin = 20;
+      s = min((width - margin) / (2 * a), (height - margin) / (2 * b));
+      let centerX = width/2;
+      let centerY = height/2;
+      A = createVector(centerX - (a * s)/2, centerY - (b * s)/2);
+      B = createVector(A.x + a * s, A.y);
+      Cpos = createVector(A.x, A.y + b * s);
+    }
+    
+    // updateSliderBackground() updates each slider's background.
     function updateSliderBackground(slider) {
       let minVal = Number(slider.elt.min);
       let maxVal = Number(slider.elt.max);
@@ -287,70 +297,8 @@
       let percentage = ((val - minVal) / (maxVal - minVal)) * 100;
       slider.elt.style.background = `linear-gradient(to right, #2196F3 0%, #2196F3 ${percentage}%, white ${percentage}%, white 100%)`;
     }
-
-    // Center the triangle using the fixed scale factor.
-    function updateTriangleVertices() {
-      let centerX = width/2;
-      let centerY = height/2;
-      A = createVector(centerX - (a * s)/2, centerY - (b * s)/2);
-      B = createVector(A.x + a * s, A.y);
-      Cpos = createVector(A.x, A.y + b * s);
-    }
-
-    function draw() {
-      background(240);
-      
-      // Draw title at top.
-      fill(0);
-      noStroke();
-      textSize(baseTextSizeTheorem);
-      textAlign(CENTER, CENTER);
-      text("Squares on sides A and B fit exactly into the square on side C", width/2, 30);
-      
-      // Draw triangle.
-      stroke(0);
-      strokeWeight(3);
-      fill(255,255,255,220);
-      triangle(A.x, A.y, B.x, B.y, Cpos.x, Cpos.y);
-      
-      // Draw side labels.
-      drawSideLabels();
-      
-      // Animate squares fading in.
-      let t = (millis() - animationStart) / 1000;
-      let alphaA = map(t, 1, 2, 0, 255, true);
-      let alphaB = map(t, 2, 3, 0, 255, true);
-      let alphaC = map(t, 3, 4, 0, 255, true);
-      
-      let sqA = getSquareVertices(A, B, Cpos);
-      let eqTextA = round(c) + "² - " + round(b) + "² = " + round(a) + "²";
-      let areaTextA = "Area: " + round(a * a) + " cm²";
-      drawSquareWithLabel2(sqA, colorA, alphaA, eqTextA, areaTextA);
-      
-      let sqB = getSquareVertices(A, Cpos, B);
-      let eqTextB = round(c) + "² - " + round(a) + "² = " + round(b) + "²";
-      let areaTextB = "Area: " + round(b * b) + " cm²";
-      drawSquareWithLabel2(sqB, colorB, alphaB, eqTextB, areaTextB);
-      
-      if (t > 3) {
-        let sqC = getSquareVerticesC_simple(B, Cpos);
-        drawSquareC_flipped(sqC, alphaC);
-      }
-      
-      // Draw theorem at bottom.
-      if (t > 4) {
-        push();
-        textSize(baseTextSizeTheorem);
-        textAlign(CENTER, CENTER);
-        stroke(0);
-        strokeWeight(2);
-        fill(255,200,0);
-        let theoremText = round(a) + "² + " + round(b) + "² = " + round(c) + "²";
-        text(theoremText, width/2, height - 40);
-        pop();
-      }
-    }
     
+    // Draw side labels along triangle edges.
     function drawSideLabels() {
       textSize(baseTextSizeSquare);
       fill(0);
@@ -414,7 +362,7 @@
       push();
       translate(vertices[0].x, vertices[0].y);
       rotate(angle);
-      scale(1, -1); // Flip the square vertically
+      scale(1, -1); // Flip vertically
       
       let wA = ((a * a) / c) * s;
       let wB = ((b * b) / c) * s;
@@ -431,8 +379,8 @@
       // Draw text inside the square.
       push();
       translate(side/2, side/2);
-      scale(-1, 1); // Flip text horizontally
-      rotate(PI/2); // Rotate text 90° counter-clockwise
+      scale(-1, 1);
+      rotate(PI/2);
       let txtSize = baseTextSizeSquare;
       textSize(txtSize);
       textAlign(CENTER, CENTER);
@@ -460,8 +408,8 @@
         vertex(v.x, v.y);
       }
       endShape(CLOSE);
-      let cx = (vertices[0].x+vertices[1].x+vertices[2].x+vertices[3].x)/4;
-      let cy = (vertices[0].y+vertices[1].y+vertices[2].y+vertices[3].y)/4;
+      let cx = (vertices[0].x + vertices[1].x + vertices[2].x + vertices[3].x) / 4;
+      let cy = (vertices[0].y + vertices[1].y + vertices[2].y + vertices[3].y) / 4;
       noStroke();
       let txtSize = baseTextSizeSquare;
       textSize(txtSize);
@@ -530,7 +478,7 @@
       animationStart = millis();
     }
     
-    // Make canvas responsive on mobile devices
+    // Make canvas responsive on mobile.
     function windowResized() {
       const container = select('#canvas-container').elt;
       resizeCanvas(container.offsetWidth, container.offsetHeight);
